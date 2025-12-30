@@ -39,8 +39,4 @@
             <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
     </dependencies>
-
-    <build>
-        <finalName>stats-client</finalName>
-    </build>
 </project>

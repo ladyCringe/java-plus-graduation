@@ -39,8 +39,4 @@
         </dependency>
 
     </dependencies>
-
-    <build>
-        <finalName>stats-dto</finalName>
-    </build>
 </project>

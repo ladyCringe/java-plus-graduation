@@ -18,8 +18,4 @@
     </modules>
 
     <packaging>pom</packaging>
-
-    <build>
-        <finalName>stats</finalName>
-    </build>
 </project>
