@@ -1,0 +1,16 @@
+server:
+  port: 0
+
+logging:
+  level:
+    org.zalando.logbook: TRACE
+
+spring:
+  sql:
+    init:
+      mode: always
+  datasource:
+    driverClassName: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:6541/stat
+    username: stat
+    password: stat
