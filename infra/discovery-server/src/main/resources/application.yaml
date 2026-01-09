@@ -1,0 +1,14 @@
+server:
+  port: 8761
+
+eureka:
+  instance:
+    preferIpAddress: true
+    hostname: localhost
+    instance-id: "${spring.application.name}:${random.value}"
+    leaseRenewalIntervalInSeconds: 10
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka
