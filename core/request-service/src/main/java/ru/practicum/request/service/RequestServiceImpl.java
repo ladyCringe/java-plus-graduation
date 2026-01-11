@@ -37,7 +37,7 @@ public class RequestServiceImpl implements RequestService {
     // ----- user side -----
     @Override
     public List<ParticipationRequestDto> getUserRequests(Long userId) {
-        userClient.getUsers(Collections.singletonList(userId)); // TODO: need exception?
+        userClient.getUsers(Collections.singletonList(userId));
         return requestRepository.findByRequesterId(userId).stream()
                 .map(RequestMapper::toDto)
                 .toList();
