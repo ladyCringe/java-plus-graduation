@@ -12,7 +12,10 @@
     <artifactId>core</artifactId>
     <packaging>pom</packaging>
     <modules>
-        <module>main-service</module>
+        <module>core-api</module>
+        <module>event-service</module>
+        <module>request-service</module>
+        <module>user-service</module>
     </modules>
 
 </project>
