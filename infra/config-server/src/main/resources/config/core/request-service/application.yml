@@ -1,0 +1,16 @@
+server:
+  port: 0
+  url: http://stats-server:9090
+
+client:
+  url: http://stats-server:9090
+
+spring:
+  sql:
+    init:
+      mode: always
+  datasource:
+    driverClassName: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:7002/main
+    username: main
+    password: main

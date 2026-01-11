@@ -1,5 +1,5 @@
 services:
-  stats-server:                     # <-- было stat-server
+  stats-server:
     build: stat/stat-server
     image: stats-server
     ports:
@@ -32,14 +32,14 @@ services:
       interval: 5s
       retries: 10
 
-  ewm-service:
-    build: main-service
-    image: main-service
-    container_name: main-service
+  event-service:
+    build: event-service
+    image: event-service
+    container_name: event-service
     ports:
       - "8080:8080"
     depends_on:
-      ewm-db:
+      event-db:
         condition: service_healthy
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://ewm-db:5432/main
@@ -51,11 +51,41 @@ services:
       timeout: 10s
       retries: 5
 
-  ewm-db:
+  event-db:
     image: postgres:16.1
-    container_name: postgres-main
+    container_name: postgres-event
     ports:
-      - "5432:5432"
+      - "7001:5432"
+    environment:
+      - POSTGRES_PASSWORD=main
+      - POSTGRES_USER=main
+      - POSTGRES_DB=main
+    healthcheck:
+      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      timeout: 5s
+      interval: 5s
+      retries: 10
+
+  request-db:
+    image: postgres:16.1
+    container_name: postgres-request
+    ports:
+      - "7002:5432"
+    environment:
+      - POSTGRES_PASSWORD=main
+      - POSTGRES_USER=main
+      - POSTGRES_DB=main
+    healthcheck:
+      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      timeout: 5s
+      interval: 5s
+      retries: 10
+
+  user-db:
+    image: postgres:16.1
+    container_name: postgres-user
+    ports:
+      - "7003:5432"
     environment:
       - POSTGRES_PASSWORD=main
       - POSTGRES_USER=main
