@@ -5,12 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>ru.practicum</groupId>
-        <artifactId>core</artifactId>
+        <artifactId>stats</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>collector</artifactId>
-    <packaging>jar</packaging>
+    <artifactId>aggregator</artifactId>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -32,19 +31,7 @@
         <dependency>
             <groupId>ru.practicum</groupId>
             <artifactId>stats-avro</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
-
-        <dependency>
-            <groupId>net.devh</groupId>
-            <artifactId>grpc-server-spring-boot-starter</artifactId>
-            <version>3.0.0.RELEASE</version>
-        </dependency>
-
-        <dependency>
-            <groupId>ru.practicum</groupId>
-            <artifactId>stats-proto</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
@@ -75,5 +62,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>

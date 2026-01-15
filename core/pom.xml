@@ -16,11 +16,6 @@
         <module>event-service</module>
         <module>request-service</module>
         <module>user-service</module>
-        <module>stats-proto</module>
-        <module>stats-avro</module>
-        <module>collector</module>
-        <module>aggregator</module>
-        <module>analyzer</module>
     </modules>
 
     <dependencyManagement>

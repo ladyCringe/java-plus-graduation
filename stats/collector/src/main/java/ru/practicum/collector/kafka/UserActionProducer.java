@@ -1,4 +1,4 @@
-package ru.practicum.collector.service;
+package ru.practicum.collector.kafka;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;

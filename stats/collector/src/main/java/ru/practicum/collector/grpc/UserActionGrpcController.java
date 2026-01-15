@@ -4,7 +4,7 @@ import com.google.protobuf.Empty;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 import net.devh.boot.grpc.server.service.GrpcService;
-import ru.practicum.collector.service.UserActionProducer;
+import ru.practicum.collector.kafka.UserActionProducer;
 import ru.practicum.ewm.stats.avro.ActionTypeAvro;
 import ru.practicum.ewm.stats.avro.UserActionAvro;
 import stats.service.collector.ActionTypeProto;
