@@ -14,3 +14,16 @@ spring:
     url: jdbc:postgresql://localhost:7001/main
     username: main
     password: main
+
+grpc:
+  client:
+    collector:
+      address: discovery:///collector
+      negotiationType: plaintext
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+    analyzer:
+      address: discovery:///analyzer
+      negotiationType: plaintext
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true

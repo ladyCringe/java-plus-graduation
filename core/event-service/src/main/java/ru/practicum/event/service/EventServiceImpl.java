@@ -12,29 +12,30 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-import ru.practicum.main.event.dto.EventFullDto;
 import ru.practicum.event.dto.EventShortDto;
 import ru.practicum.event.dto.NewEventDto;
 import ru.practicum.event.dto.UpdateEventAdminRequest;
 import ru.practicum.event.dto.UpdateEventUserRequest;
-import ru.practicum.main.event.dto.CategoryDto;
 import ru.practicum.event.entity.Category;
-import ru.practicum.event.mapper.CategoryMapper;
-import ru.practicum.event.repository.CategoryRepository;
 import ru.practicum.event.entity.Event;
-import ru.practicum.main.event.entity.EventState;
+import ru.practicum.event.mapper.CategoryMapper;
 import ru.practicum.event.mapper.EventMapper;
+import ru.practicum.event.repository.CategoryRepository;
 import ru.practicum.event.repository.EventRepository;
 import ru.practicum.event.repository.EventSpecifications;
 import ru.practicum.main.client.ParticipationRequestClient;
+import ru.practicum.main.event.dto.CategoryDto;
+import ru.practicum.main.event.dto.EventFullDto;
+import ru.practicum.main.event.entity.EventState;
 import ru.practicum.main.exception.BadRequestException;
 import ru.practicum.main.exception.ConflictException;
 import ru.practicum.main.exception.NotFoundException;
 import ru.practicum.main.request.entity.RequestStatus;
 import ru.practicum.main.user.dto.UserShortDto;
 import ru.practicum.stat.client.StatClient;
+import ru.practicum.stat.client.grpc.AnalyzerGrpcClient;
+import ru.practicum.stat.client.grpc.CollectorGrpcClient;
 import ru.practicum.stat.dto.EndpointHit;
-import ru.practicum.stat.dto.ViewStats;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -51,7 +52,8 @@ public class EventServiceImpl implements EventService {
     private final EventRepository eventRepository;
     private final CategoryRepository categoryRepository;
     private final ParticipationRequestClient requestClient;
-    private final EventViewService eventViewService;
+    private final CollectorGrpcClient collectorGrpcClient;
+    private final AnalyzerGrpcClient analyzerGrpcClient;
     private final StatClient statClient;
     @Value("${app.name:ewm-main}")
     private String appName;
@@ -92,13 +94,13 @@ public class EventServiceImpl implements EventService {
                     .collect(Collectors.toList());
         }
 
-        Map<Long, Long> viewsByEvent = fetchViews(events);
+        events.forEach(e -> e.setRating(fetchRating(e.getId())));
 
         String sortMode = (sort == null) ? "EVENT_DATE" : sort.toUpperCase(Locale.ROOT);
         Comparator<Event> byDate = Comparator.comparing(Event::getEventDate);
-        if ("VIEWS".equals(sortMode)) {
+        if ("RATING".equals(sortMode)) {
             Comparator<Event> byViewsDesc = Comparator
-                    .comparing((Event e) -> viewsByEvent.getOrDefault(e.getId(), 0L))
+                    .comparing(Event::getRating)
                     .reversed()
                     .thenComparing(byDate);
             events.sort(byViewsDesc);
@@ -111,22 +113,25 @@ public class EventServiceImpl implements EventService {
         int to = Math.min(events.size(), f + s);
         if (f >= events.size()) return List.of();
 
-        return events.subList(f, to).stream()
-                .map(e -> toShortDtoRich(e, viewsByEvent.getOrDefault(e.getId(), 0L)))
-                .collect(Collectors.toList());
+        return events.subList(f, to).stream().map(this::toShortDtoRich).toList();
     }
 
     @Override
-    public EventFullDto getPublishedEventById(Long eventId, HttpServletRequest request) {
+    public EventFullDto getPublishedEventById(Long eventId, long userId) {
         Event e = eventRepository.findByIdAndState(eventId, EventState.PUBLISHED)
                 .orElseThrow(() -> new NotFoundException("Event with id=" + eventId + " was not found"));
 
-        eventViewService.increaseViews(eventId, request.getRemoteHost());
+        try {
+            collectorGrpcClient.sendView(userId, eventId);
+        } catch (Exception ex) {
+            log.warn("Collector sendView failed: {}", ex.getMessage());
+        }
 
-        saveHit(request);
+        double rating = fetchRating(eventId);
+        e.setRating(rating);
+        eventRepository.save(e);
 
-        Map<Long, Long> views = fetchViews(List.of(e));
-        return toFullDtoRich(e, views.getOrDefault(e.getId(), 0L));
+        return toFullDtoRich(e);
     }
 
     // ===== Private =====
@@ -140,11 +145,8 @@ public class EventServiceImpl implements EventService {
         Page<Event> pageObj = eventRepository.findByInitiatorId(userId, pageable);
         List<Event> events = pageObj.getContent();
 
-        Map<Long, Long> viewsByEvent = fetchViews(events);
-
-        return events.stream()
-                .map(e -> toShortDtoRich(e, viewsByEvent.getOrDefault(e.getId(), 0L)))
-                .collect(Collectors.toList());
+        events.forEach(e -> e.setRating(fetchRating(e.getId())));
+        return events.stream().map(this::toShortDtoRich).toList();
     }
 
     @Override
@@ -160,14 +162,14 @@ public class EventServiceImpl implements EventService {
 
         Event preSaved = EventMapper.toEntity(body, category, userId);
 
-        return toFullDtoRich(eventRepository.save(preSaved), 0L);
+        return toFullDtoRich(eventRepository.save(preSaved));
     }
 
     @Override
     public EventFullDto getEventByUser(Long userId, Long eventId) {
         Event e = getUserEventOrThrow(userId, eventId);
-        Map<Long, Long> views = fetchViews(List.of(e));
-        return toFullDtoRich(e, views.getOrDefault(e.getId(), 0L));
+        e.setRating(fetchRating(e.getId()));
+        return toFullDtoRich(e);
     }
 
     @Override
@@ -213,8 +215,8 @@ public class EventServiceImpl implements EventService {
         }
 
         Event saved = eventRepository.save(e);
-        Map<Long, Long> views = fetchViews(List.of(saved));
-        return toFullDtoRich(saved, views.getOrDefault(saved.getId(), 0L));
+        saved.setRating(fetchRating(saved.getId()));
+        return toFullDtoRich(saved);
     }
 
     // ===== Admin =====
@@ -244,11 +246,8 @@ public class EventServiceImpl implements EventService {
         int to = Math.min(events.size(), f + s);
         if (f >= events.size()) return List.of();
 
-        Map<Long, Long> viewsByEvent = fetchViews(events.subList(f, to));
-
-        return events.subList(f, to).stream()
-                .map(e -> toFullDtoRich(e, viewsByEvent.getOrDefault(e.getId(), 0L)))
-                .collect(Collectors.toList());
+        events.forEach(e -> e.setRating(fetchRating(e.getId())));
+        return events.subList(f, to).stream().map(this::toFullDtoRich).toList();
     }
 
     @Override
@@ -303,15 +302,15 @@ public class EventServiceImpl implements EventService {
         }
 
         Event saved = eventRepository.save(e);
-        Map<Long, Long> views = fetchViews(List.of(saved));
-        return toFullDtoRich(saved, views.getOrDefault(saved.getId(), 0L));
+        saved.setRating(fetchRating(saved.getId()));
+        return toFullDtoRich(saved);
     }
 
     @Override
     public Optional<EventFullDto> getEventById(Long id) {
         return eventRepository.findById(id).map(e -> {
-            Map<Long, Long> views = fetchViews(List.of(e));
-            return toFullDtoRich(e, views.getOrDefault(e.getId(), 0L));
+            e.setRating(fetchRating(e.getId()));
+            return toFullDtoRich(e);
         });
     }
 
@@ -344,22 +343,22 @@ public class EventServiceImpl implements EventService {
         return requestClient.countByEventIdAndStatus(eventId, RequestStatus.CONFIRMED);
     }
 
-    private EventFullDto toFullDtoRich(Event e, long views) {
+    private EventFullDto toFullDtoRich(Event e) {
         EventFullDto dto = EventMapper.toFullDto(e);
         CategoryDto cat = CategoryMapper.toDto(e.getCategory());
         dto.setCategory(cat);
         dto.setInitiator(buildInitiator(e.getInitiatorId()));
         dto.setConfirmedRequests(getConfirmedCount(e.getId()));
-        dto.setViews(e.getViews());
+        dto.setRating(e.getRating());
         return dto;
     }
 
-    private EventShortDto toShortDtoRich(Event e, long views) {
+    private EventShortDto toShortDtoRich(Event e) {
         EventShortDto dto = EventMapper.toShortDto(e);
         dto.setCategory(CategoryMapper.toDto(e.getCategory()));
         dto.setInitiator(buildInitiator(e.getInitiatorId()));
         dto.setConfirmedRequests(getConfirmedCount(e.getId()));
-        dto.setViews(views);
+        dto.setRating(e.getRating());
         return dto;
     }
 
@@ -380,41 +379,6 @@ public class EventServiceImpl implements EventService {
         }
     }
 
-    private Map<Long, Long> fetchViews(List<Event> events) {
-        if (events == null || events.isEmpty()) return Map.of();
-
-        LocalDateTime start = events.stream()
-                .map(e -> Optional.ofNullable(e.getPublishedOn()).orElse(e.getCreatedOn()))
-                .filter(Objects::nonNull)
-                .min(LocalDateTime::compareTo)
-                .orElse(LocalDateTime.now());
-
-        List<String> uris = events.stream()
-                .map(e -> "/events/" + e.getId())
-                .distinct()
-                .toList();
-
-        try {
-            List<ViewStats> stats = statClient.getStats(start, LocalDateTime.now(), uris, true);
-            Map<String, Long> hitsByUri = stats == null ? Map.of() :
-                    stats.stream().collect(Collectors.toMap(
-                            ViewStats::getUri,
-                            s -> (long) s.getHits(),
-                            Long::sum
-                    ));
-
-            Map<Long, Long> result = new HashMap<>();
-            for (Event e : events) {
-                long v = hitsByUri.getOrDefault("/events/" + e.getId(), 0L);
-                result.put(e.getId(), v);
-            }
-            return result;
-        } catch (Exception ex) {
-            log.warn("StatService getStats failed: {}", ex.getMessage());
-            return events.stream().collect(Collectors.toMap(Event::getId, e -> 0L));
-        }
-    }
-
     private HttpServletRequest currentRequest() {
         ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         return attrs != null ? attrs.getRequest() : null;
@@ -428,4 +392,17 @@ public class EventServiceImpl implements EventService {
         }
         return req.getRemoteAddr();
     }
+
+    private double fetchRating(long eventId) {
+        try {
+            return analyzerGrpcClient.interactionsCount(List.of(eventId))
+                    .findFirst()
+                    .map(r -> r.getScore())
+                    .orElse(0.0);
+        } catch (Exception ex) {
+            log.warn("Analyzer interactionsCount failed: {}", ex.getMessage());
+            return 0.0;
+        }
+    }
+
 }

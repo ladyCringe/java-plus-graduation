@@ -30,7 +30,7 @@ public class EventMapper {
                 .participantLimit(dto.getParticipantLimit() == null ? 0 : dto.getParticipantLimit())
                 .requestModeration(dto.getRequestModeration() == null || dto.getRequestModeration())
                 .state(EventState.PENDING)
-                .views(0L)
+                .rating(0)
                 .category(category)
                 .initiatorId(initiatorId)
                 .build();
@@ -50,7 +50,7 @@ public class EventMapper {
                 .participantLimit(e.getParticipantLimit())
                 .requestModeration(e.getRequestModeration())
                 .state(e.getState())
-                .views(e.getViews())
+                .rating(e.getRating())
                 .build();
     }
 
@@ -61,7 +61,7 @@ public class EventMapper {
                 .annotation(e.getAnnotation())
                 .eventDate(e.getEventDate())
                 .paid(e.getPaid())
-                .views(e.getViews())
+                .rating(e.getRating())
                 .build();
     }
 }

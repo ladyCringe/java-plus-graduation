@@ -1,6 +1,7 @@
 package ru.practicum.request.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.main.client.EventClient;
@@ -16,6 +17,7 @@ import ru.practicum.request.entity.ParticipationRequest;
 import ru.practicum.main.request.entity.RequestStatus;
 import ru.practicum.request.mapper.RequestMapper;
 import ru.practicum.request.repository.ParticipationRequestRepository;
+import ru.practicum.stat.client.grpc.CollectorGrpcClient;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -25,6 +27,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -33,6 +36,8 @@ public class RequestServiceImpl implements RequestService {
     private final ParticipationRequestRepository requestRepository;
     private final EventClient eventClient;
     private final UserClient userClient;
+    private final CollectorGrpcClient collectorGrpcClient;
+
 
     // ----- user side -----
     @Override
@@ -78,6 +83,13 @@ public class RequestServiceImpl implements RequestService {
                         .created(LocalDateTime.now())
                         .build()
         );
+
+        try {
+            collectorGrpcClient.sendRegister(userId, eventId);
+        } catch (Exception ex) {
+            log.warn("Collector sendRegister failed: {}", ex.getMessage());
+        }
+
         return RequestMapper.toDto(saved);
     }
 
