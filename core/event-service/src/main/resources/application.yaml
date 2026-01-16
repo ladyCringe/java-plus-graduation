@@ -15,7 +15,7 @@ spring:
 
 eureka:
   client:
-    enable: true
+    enabled: true
     registerWithEureka: true
     fetchRegistry: true
     serviceUrl:

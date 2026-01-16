@@ -7,18 +7,13 @@ server:
 
 eureka:
   instance:
-    preferIpAddress: true
     hostname: localhost
-    instance-id: "${spring.application.name}:${random.value}"
-    leaseRenewalIntervalInSeconds: 10
   client:
-    register-with-eureka: false
-    fetch-registry: false
-    service-url:
-      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka
-  server:
-    eviction-interval-timer-in-ms: 1000
-    response-cache-update-interval-ms: 1000
+    registerWithEureka: false
+    fetchRegistry: false
+    serviceUrl:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+
 management:
   endpoints:
     web:

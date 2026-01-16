@@ -1,7 +1,6 @@
 spring:
   application:
     name: collector
-
   config:
     import: "configserver:"
   cloud:
@@ -14,25 +13,21 @@ spring:
         enabled: true
         serviceId: config-server
 
-grpc:
-  server:
-    port: 0
-
 eureka:
   client:
-    enable: true
+    enabled: true
+    initial-instance-info-replication-interval-seconds: 1
+    instance-info-replication-interval-seconds: 5
     registerWithEureka: true
     fetchRegistry: true
     serviceUrl:
       defaultZone: http://localhost:8761/eureka/
-    instance-info-replication-interval-seconds: 1
-    registry-fetch-interval-seconds: 1
-    should-unregister-on-shutdown: true
   instance:
-    lease-renewal-interval-in-seconds: 1
-    lease-expiration-duration-in-seconds: 1
-    metadata-map:
-      gRPC_port: ${grpc.server.port}
     preferIpAddress: true
     hostname: localhost
     instance-id: "${spring.application.name}:${random.value}"
+    leaseRenewalIntervalInSeconds: 5
+
+grpc:
+  server:
+    port: 45163
