@@ -1,4 +1,37 @@
 services:
+  discovery-server:
+    build:
+      context: ./infra/discovery-server
+    image: discovery-server
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8761/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  config-server:
+    build:
+      context: ./infra/config-server
+    image: config-server
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    depends_on:
+      discovery-server:
+        condition: service_started
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8888/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
   stats-server:
     build: stat/stat-server
     image: stats-server
@@ -50,6 +83,20 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+  all-db:
+    image: postgres:16.1
+    container_name: postgres-all
+    ports:
+      - "7007:5432"
+    environment:
+      - POSTGRES_PASSWORD=all
+      - POSTGRES_USER=all
+      - POSTGRES_DB=all
+    healthcheck:
+      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      timeout: 5s
+      interval: 5s
+      retries: 10
 
   event-db:
     image: postgres:16.1
@@ -90,6 +137,101 @@ services:
       - POSTGRES_PASSWORD=main
       - POSTGRES_USER=main
       - POSTGRES_DB=main
+    healthcheck:
+      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      timeout: 5s
+      interval: 5s
+      retries: 10
+
+  kafka:
+    image: confluentinc/confluent-local:7.4.3
+    hostname: kafka
+    container_name: kafka
+    ports:
+      - "9090:9090"
+      - "9092:9092"
+      - "9101:9101"
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092'
+      CLUSTER_ID: 'K0EA9p0yEe6MkAAAAkKsEg'
+
+  kafka-init:
+    image: confluentinc/confluent-local:7.4.3
+    container_name: kafka-init
+    depends_on:
+      - kafka
+    command: "bash -c \
+                'kafka-topics --create --topic stats.user-actions.v1 \
+                             --partitions 1 --replication-factor 1 --if-not-exists \
+                             --bootstrap-server kafka:29092 && \
+                kafka-topics --create --topic stats.events-similarity.v1 \
+                             --partitions 1 --replication-factor 1 --if-not-exists \
+                             --bootstrap-server kafka:29092'"
+    init: true
+
+  collector:
+    build:
+      context: ./core/collector
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: unless-stopped
+
+  aggregator:
+    build:
+      context: ./core/aggregator
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: unless-stopped
+
+  analyzer:
+    build:
+      context: ./core/analyzer
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+      analyzer-db:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://analyzer-db:5432/analyzer
+      - SPRING_DATASOURCE_USERNAME=analyzer
+      - SPRING_DATASOURCE_PASSWORD=analyzer
+    restart: unless-stopped
+
+  analyzer-db:
+    image: postgres:16.1
+    container_name: postgres-analyzer
+    ports:
+      - "7004:5432"
+    environment:
+      - POSTGRES_PASSWORD=analyzer
+      - POSTGRES_USER=analyzer
+      - POSTGRES_DB=analyzer
     healthcheck:
       test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
       timeout: 5s

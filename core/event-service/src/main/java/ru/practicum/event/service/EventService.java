@@ -17,7 +17,7 @@ public interface EventService {
                                            Boolean onlyAvailable, String sort, Integer from, Integer size,
                                            HttpServletRequest request);
 
-    EventFullDto getPublishedEventById(Long eventId, HttpServletRequest request);
+    EventFullDto getPublishedEventById(Long eventId, long userId);
 
     // ===== Private =====
     List<EventShortDto> getUserEvents(Long userId, Integer from, Integer size);

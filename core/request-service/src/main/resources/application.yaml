@@ -15,7 +15,7 @@ spring:
 
 eureka:
   client:
-    enable: true
+    enabled: true
     registerWithEureka: true
     fetchRegistry: true
     serviceUrl:
@@ -25,3 +25,16 @@ eureka:
     hostname: localhost
     instance-id: "${spring.application.name}:${random.value}"
     leaseRenewalIntervalInSeconds: 10
+
+grpc:
+  client:
+    collector:
+      address: "discovery:///collector"
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+    analyzer:
+      address: "discovery:///analyzer"
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext

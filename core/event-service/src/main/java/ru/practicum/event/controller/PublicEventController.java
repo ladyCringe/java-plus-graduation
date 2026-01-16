@@ -29,7 +29,7 @@ public class PublicEventController {
             @RequestParam(required = false) String rangeStart,
             @RequestParam(required = false) String rangeEnd,
             @RequestParam(defaultValue = "false") Boolean onlyAvailable,
-            @Pattern(regexp = "EVENT_DATE|VIEWS", message = "sort must be EVENT_DATE or VIEWS")
+            @Pattern(regexp = "EVENT_DATE|RATING", message = "sort must be EVENT_DATE or RATING")
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "0") Integer from,
             @RequestParam(defaultValue = "10") Integer size,
@@ -43,11 +43,14 @@ public class PublicEventController {
     }
 
     @GetMapping("/{id}")
-    public EventFullDto getPublishedEventById(@PathVariable Long id, HttpServletRequest request) {
-        log.info("PUBLIC /events/{}", id);
-        EventFullDto newdto = eventService.getPublishedEventById(id, request);
-        log.debug("SUCCESS: PUBLIC /events/{} newdto={} ip={} uri={}", id, newdto, request.getRemoteAddr(), request.getRequestURI());
-        return newdto;
+    public EventFullDto getPublishedEventById(@PathVariable Long id,
+                                              @RequestHeader("X-EWM-USER-ID") long userId,
+                                              HttpServletRequest request) {
+        log.info("PUBLIC /events/{} user={}", id, userId);
+        EventFullDto dto = eventService.getPublishedEventById(id, userId);
+        log.debug("SUCCESS: PUBLIC /events/{} dto={} ip={} uri={}", id, dto, request.getRemoteAddr(), request.getRequestURI());
+        return dto;
     }
+
 }
 
