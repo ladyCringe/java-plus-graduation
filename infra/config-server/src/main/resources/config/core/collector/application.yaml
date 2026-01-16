@@ -11,18 +11,3 @@ spring:
 collector:
   topic:
     user-actions: stats.user-actions.v1
-
-grpc:
-  server:
-    port: 0
-
-eureka:
-  client:
-    instance-info-replication-interval-seconds: 1
-    registry-fetch-interval-seconds: 1
-    should-unregister-on-shutdown: true
-  instance:
-    lease-renewal-interval-in-seconds: 1
-    lease-expiration-duration-in-seconds: 1
-    metadata-map:
-      gRPC_port: ${grpc.server.port}

@@ -14,6 +14,10 @@ spring:
         enabled: true
         serviceId: config-server
 
+grpc:
+  server:
+    port: 0
+
 eureka:
   client:
     enable: true
@@ -21,7 +25,14 @@ eureka:
     fetchRegistry: true
     serviceUrl:
       defaultZone: http://localhost:8761/eureka/
-
-grpc:
-  server:
-    port: 0
+    instance-info-replication-interval-seconds: 1
+    registry-fetch-interval-seconds: 1
+    should-unregister-on-shutdown: true
+  instance:
+    lease-renewal-interval-in-seconds: 1
+    lease-expiration-duration-in-seconds: 1
+    metadata-map:
+      gRPC_port: ${grpc.server.port}
+    preferIpAddress: true
+    hostname: localhost
+    instance-id: "${spring.application.name}:${random.value}"
